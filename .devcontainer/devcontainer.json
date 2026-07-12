@@ -1,0 +1,29 @@
+{
+	"name": "Ubuntu Dev Container (Claude Code + MCP tools)",
+	"image": "mcr.microsoft.com/devcontainers/base:ubuntu24.04",
+
+	"features": {
+		// Node.js (Claude Code CLI と Playwright/context7 の実行に必要)
+		"ghcr.io/devcontainers/features/node:1": {},
+
+		// Claude Code CLI (このFeatureは常に最新版をインストールする)
+		"ghcr.io/anthropics/devcontainer-features/claude-code:1": {},
+
+		// uv / uvx (Serenaの実行に使用)
+		"ghcr.io/va-h/devcontainers-features/uv:1": {
+			"shellautocompletion": true
+		}
+	},
+
+	// 認証情報等をコンテナ再作成後も保持する場合(任意)
+	"mounts": [
+		"source=claude-code-config-${devcontainerId},target=/home/vscode/.claude,type=volume"
+	],
+	"containerEnv": {
+		"CLAUDE_CONFIG_DIR": "/home/vscode/.claude"
+	},
+	"remoteUser": "vscode",
+
+	// コンテナ作成後に一度だけ実行され、Playwright/context7/Serenaをセットアップする
+	"postCreateCommand": "bash .devcontainer/post-create.sh"
+}
