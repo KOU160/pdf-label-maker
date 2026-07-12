@@ -132,7 +132,209 @@
 </form>
 
 <script>
-  // PDF作成ボタンの挙動は未実装
+  // 用紙サイズ(A4, mm)
+  const PAPER_WIDTH = 210;
+  const PAPER_HEIGHT = 297;
+
+  // 日本語フォント(Noto Sans JP)の配布元。初回のみ取得しBase64化してキャッシュする
+  const JP_FONT_URL = 'https://raw.githubusercontent.com/google/fonts/main/ofl/notosansjp/NotoSansJP%5Bwght%5D.ttf';
+  const JP_FONT_NAME = 'NotoSansJP';
+  let jpFontBase64Cache = null;
+
+  const errorEl = document.getElementById('error');
+  const createPdfButton = document.getElementById('createPdfButton');
+
+  function showError(message) {
+    errorEl.textContent = message;
+  }
+
+  function clearError() {
+    errorEl.textContent = '';
+  }
+
+  // ArrayBufferをBase64文字列に変換する(巨大なフォントでもスタックオーバーフローしないよう分割処理する)
+  function arrayBufferToBase64(buffer) {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize);
+      binary += String.fromCharCode.apply(null, chunk);
+    }
+    return btoa(binary);
+  }
+
+  // 日本語フォントをCDNから取得してBase64化する(2回目以降はキャッシュを返す)
+  async function loadJapaneseFontBase64() {
+    if (jpFontBase64Cache) {
+      return jpFontBase64Cache;
+    }
+    const response = await fetch(JP_FONT_URL);
+    if (!response.ok) {
+      throw new Error('日本語フォントの取得に失敗しました');
+    }
+    const buffer = await response.arrayBuffer();
+    jpFontBase64Cache = arrayBufferToBase64(buffer);
+    return jpFontBase64Cache;
+  }
+
+  // フォームの入力値を数値化して取得する
+  function getFormValues() {
+    return {
+      marginTop: parseFloat(document.getElementById('marginTop').value),
+      marginBottom: parseFloat(document.getElementById('marginBottom').value),
+      marginLeft: parseFloat(document.getElementById('marginLeft').value),
+      marginRight: parseFloat(document.getElementById('marginRight').value),
+      labelWidth: parseFloat(document.getElementById('labelWidth').value),
+      labelHeight: parseFloat(document.getElementById('labelHeight').value),
+      gapX: parseFloat(document.getElementById('gapX').value),
+      gapY: parseFloat(document.getElementById('gapY').value),
+      text: document.getElementById('labelText').value,
+    };
+  }
+
+  // 入力値を検証する。問題があればエラーメッセージ文字列を、問題なければnullを返す
+  function validateInputs(values) {
+    const numericFields = [
+      ['上余白', values.marginTop],
+      ['下余白', values.marginBottom],
+      ['左余白', values.marginLeft],
+      ['右余白', values.marginRight],
+      ['ラベルの幅', values.labelWidth],
+      ['ラベルの高さ', values.labelHeight],
+      ['ラベル間の横方向余白', values.gapX],
+      ['ラベル間の縦方向余白', values.gapY],
+    ];
+    for (const [label, value] of numericFields) {
+      if (!Number.isFinite(value) || value <= 0) {
+        return `${label}には0より大きい数値を入力してください。`;
+      }
+    }
+
+    if (!values.text.trim()) {
+      return '印字するテキストを入力してください。';
+    }
+
+    const availableWidth = PAPER_WIDTH - values.marginLeft - values.marginRight;
+    const availableHeight = PAPER_HEIGHT - values.marginTop - values.marginBottom;
+
+    if (availableWidth <= 0 || availableHeight <= 0) {
+      return '左右または上下の余白の合計が用紙サイズを超えています。';
+    }
+    if (values.labelWidth > availableWidth || values.labelHeight > availableHeight) {
+      return 'ラベルサイズが大きすぎて用紙に配置できません。';
+    }
+
+    const { cols, rows } = calculateGrid(values, availableWidth, availableHeight);
+    if (cols < 1 || rows < 1) {
+      return '指定した設定ではラベルを1つも配置できません。';
+    }
+
+    return null;
+  }
+
+  // 余白・ラベルサイズ・ラベル間余白から、配置できる列数・行数を計算する
+  function calculateGrid(values, availableWidth, availableHeight) {
+    const cols = Math.floor((availableWidth + values.gapX) / (values.labelWidth + values.gapX));
+    const rows = Math.floor((availableHeight + values.gapY) / (values.labelHeight + values.gapY));
+    return { cols, rows };
+  }
+
+  // ラベル1つ分のテキストを、枠内に収まるフォントサイズで中央揃え描画する
+  function drawLabelText(doc, text, centerX, centerY, boxWidth, boxHeight) {
+    const paddingMm = 2;
+    const maxWidth = Math.max(boxWidth - paddingMm * 2, 1);
+    const maxHeight = Math.max(boxHeight - paddingMm * 2, 1);
+    const maxFontSize = 14;
+    const minFontSize = 4;
+    const lineHeightRatio = 1.3;
+    const ptToMm = 0.3528;
+
+    const lines = text.split('\n');
+    let fontSize = maxFontSize;
+
+    for (; fontSize > minFontSize; fontSize -= 0.5) {
+      doc.setFontSize(fontSize);
+      const lineHeightMm = fontSize * ptToMm * lineHeightRatio;
+      const blockHeight = lines.length * lineHeightMm;
+      const widestLineWidth = Math.max(...lines.map((line) => doc.getTextWidth(line)));
+      if (blockHeight <= maxHeight && widestLineWidth <= maxWidth) {
+        break;
+      }
+    }
+
+    doc.setFontSize(fontSize);
+    const lineHeightMm = fontSize * ptToMm * lineHeightRatio;
+    const blockHeight = lines.length * lineHeightMm;
+    let y = centerY - blockHeight / 2 + lineHeightMm / 2;
+
+    lines.forEach((line) => {
+      doc.text(line, centerX, y, { align: 'center', baseline: 'middle' });
+      y += lineHeightMm;
+    });
+  }
+
+  // 用紙いっぱいに同じテキストのラベルを配置したPDFを生成する
+  async function createPdf() {
+    clearError();
+    const values = getFormValues();
+    const errorMessage = validateInputs(values);
+    if (errorMessage) {
+      showError(errorMessage);
+      return;
+    }
+
+    const originalButtonLabel = createPdfButton.textContent;
+    createPdfButton.disabled = true;
+    createPdfButton.textContent = '日本語フォントを読み込み中...';
+
+    try {
+      const fontBase64 = await loadJapaneseFontBase64();
+
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+      // 日本語フォントをjsPDFに埋め込む(埋め込まないと文字化けするため)
+      doc.addFileToVFS('NotoSansJP.ttf', fontBase64);
+      doc.addFont('NotoSansJP.ttf', JP_FONT_NAME, 'normal');
+      doc.setFont(JP_FONT_NAME);
+
+      const availableWidth = PAPER_WIDTH - values.marginLeft - values.marginRight;
+      const availableHeight = PAPER_HEIGHT - values.marginTop - values.marginBottom;
+      const { cols, rows } = calculateGrid(values, availableWidth, availableHeight);
+
+      doc.setDrawColor(150);
+      doc.setLineWidth(0.1);
+
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          const x = values.marginLeft + col * (values.labelWidth + values.gapX);
+          const y = values.marginTop + row * (values.labelHeight + values.gapY);
+
+          // 切り取り線の目安として枠線を描画する
+          doc.rect(x, y, values.labelWidth, values.labelHeight, 'S');
+
+          drawLabelText(
+            doc,
+            values.text,
+            x + values.labelWidth / 2,
+            y + values.labelHeight / 2,
+            values.labelWidth,
+            values.labelHeight
+          );
+        }
+      }
+
+      doc.save('labels.pdf');
+    } catch (error) {
+      showError('PDFの生成中にエラーが発生しました。' + error.message);
+    } finally {
+      createPdfButton.disabled = false;
+      createPdfButton.textContent = originalButtonLabel;
+    }
+  }
+
+  createPdfButton.addEventListener('click', createPdf);
 </script>
 
 </body>
