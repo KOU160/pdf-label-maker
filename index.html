@@ -240,8 +240,8 @@
     return { cols, rows };
   }
 
-  // ラベル1つ分のテキストを、枠内に収まるフォントサイズで中央揃え描画する
-  function drawLabelText(doc, text, centerX, centerY, boxWidth, boxHeight) {
+  // ラベル1つ分のテキストを、枠内に収まるフォントサイズで左上揃えに描画する
+  function drawLabelText(doc, text, boxX, boxY, boxWidth, boxHeight) {
     const paddingMm = 2;
     const maxWidth = Math.max(boxWidth - paddingMm * 2, 1);
     const maxHeight = Math.max(boxHeight - paddingMm * 2, 1);
@@ -265,11 +265,11 @@
 
     doc.setFontSize(fontSize);
     const lineHeightMm = fontSize * ptToMm * lineHeightRatio;
-    const blockHeight = lines.length * lineHeightMm;
-    let y = centerY - blockHeight / 2 + lineHeightMm / 2;
+    const textX = boxX + paddingMm;
+    let y = boxY + paddingMm;
 
     lines.forEach((line) => {
-      doc.text(line, centerX, y, { align: 'center', baseline: 'middle' });
+      doc.text(line, textX, y, { align: 'left', baseline: 'top' });
       y += lineHeightMm;
     });
   }
@@ -323,8 +323,8 @@
           drawLabelText(
             doc,
             values.text,
-            x + values.labelWidth / 2,
-            y + values.labelHeight / 2,
+            x,
+            y,
             values.labelWidth,
             values.labelHeight
           );
