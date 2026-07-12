@@ -303,13 +303,19 @@
       const availableHeight = PAPER_HEIGHT - values.marginTop - values.marginBottom;
       const { cols, rows } = calculateGrid(values, availableWidth, availableHeight);
 
+      // 割り切れずに余った分の余白を左右・上下に均等に振り分け、ラベル全体を中央揃えにする
+      const gridWidth = cols * values.labelWidth + (cols - 1) * values.gapX;
+      const gridHeight = rows * values.labelHeight + (rows - 1) * values.gapY;
+      const startX = values.marginLeft + (availableWidth - gridWidth) / 2;
+      const startY = values.marginTop + (availableHeight - gridHeight) / 2;
+
       doc.setDrawColor(150);
       doc.setLineWidth(0.1);
 
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
-          const x = values.marginLeft + col * (values.labelWidth + values.gapX);
-          const y = values.marginTop + row * (values.labelHeight + values.gapY);
+          const x = startX + col * (values.labelWidth + values.gapX);
+          const y = startY + row * (values.labelHeight + values.gapY);
 
           // 切り取り線の目安として枠線を描画する
           doc.rect(x, y, values.labelWidth, values.labelHeight, 'S');
