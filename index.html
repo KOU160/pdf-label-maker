@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PDFラベルメーカー</title>
+<!-- jsPDFライブラリをCDNから読み込む -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  body {
+    font-family: sans-serif;
+    max-width: 480px;
+    margin: 40px auto;
+    padding: 0 16px;
+    color: #222;
+  }
+  h1 {
+    font-size: 20px;
+    margin-bottom: 24px;
+  }
+  fieldset {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    margin-bottom: 16px;
+  }
+  legend {
+    font-weight: bold;
+    padding: 0 4px;
+  }
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .row label {
+    flex: 0 0 140px;
+  }
+  .row input {
+    flex: 1;
+    padding: 4px;
+  }
+  .row span {
+    color: #666;
+    font-size: 12px;
+  }
+  textarea {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px;
+    font-size: 14px;
+  }
+  #error {
+    color: #c00;
+    margin-bottom: 16px;
+    white-space: pre-wrap;
+  }
+  button {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<h1>PDFラベルメーカー</h1>
+
+<!-- エラーメッセージ表示欄 -->
+<div id="error"></div>
+
+<form id="labelForm">
+
+  <fieldset>
+    <legend>用紙の余白 (mm)</legend>
+    <div class="row">
+      <label for="marginTop">上</label>
+      <input type="number" id="marginTop" value="10" step="0.1">
+    </div>
+    <div class="row">
+      <label for="marginBottom">下</label>
+      <input type="number" id="marginBottom" value="10" step="0.1">
+    </div>
+    <div class="row">
+      <label for="marginLeft">左</label>
+      <input type="number" id="marginLeft" value="10" step="0.1">
+    </div>
+    <div class="row">
+      <label for="marginRight">右</label>
+      <input type="number" id="marginRight" value="10" step="0.1">
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>ラベルサイズ (mm)</legend>
+    <div class="row">
+      <label for="labelWidth">幅</label>
+      <input type="number" id="labelWidth" value="40" step="0.1">
+    </div>
+    <div class="row">
+      <label for="labelHeight">高さ</label>
+      <input type="number" id="labelHeight" value="20" step="0.1">
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>ラベル間の余白 (mm)</legend>
+    <div class="row">
+      <label for="gapX">横方向</label>
+      <input type="number" id="gapX" value="2" step="0.1">
+    </div>
+    <div class="row">
+      <label for="gapY">縦方向</label>
+      <input type="number" id="gapY" value="2" step="0.1">
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>印字するテキスト</legend>
+    <textarea id="labelText" rows="4" placeholder="すべてのラベルに印字する内容を入力してください"></textarea>
+  </fieldset>
+
+  <!-- プレビュー表示欄(未実装) -->
+  <fieldset>
+    <legend>プレビュー</legend>
+    <div id="preview"></div>
+  </fieldset>
+
+  <button type="button" id="createPdfButton">PDFを作成</button>
+
+</form>
+
+<script>
+  // PDF作成ボタンの挙動は未実装
+</script>
+
+</body>
+</html>
