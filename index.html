@@ -36,7 +36,8 @@
   .row label {
     flex: 0 0 140px;
   }
-  .row input {
+  .row input,
+  .row select {
     flex: 1;
     padding: 4px;
   }
@@ -71,6 +72,19 @@
 <div id="error"></div>
 
 <form id="labelForm">
+
+  <fieldset>
+    <legend>用紙プリセット</legend>
+    <div class="row">
+      <label for="paperPreset">プリセット</label>
+      <select id="paperPreset">
+        <option value="custom">カスタム</option>
+        <option value="a4-72">A4 72面</option>
+        <option value="a4-24">A4 24面</option>
+        <option value="a4-44">A4 44面</option>
+      </select>
+    </div>
+  </fieldset>
 
   <fieldset>
     <legend>印字するテキスト</legend>
@@ -141,8 +155,45 @@
   const JP_FONT_NAME = 'NotoSansJP';
   let jpFontBase64Cache = null;
 
+  // 用紙プリセット定義(mm)。カスタムは自動入力を行わない
+  const PAPER_PRESETS = {
+    'a4-72': {
+      marginTop: 10.2, marginBottom: 10.2, marginLeft: 7.6, marginRight: 7.6,
+      labelWidth: 25.4, labelHeight: 10, gapX: 2.54, gapY: 0,
+    },
+    'a4-24': {
+      marginTop: 13.5, marginBottom: 12.6, marginLeft: 6.8, marginRight: 6.8,
+      labelWidth: 64.3, labelHeight: 33.9, gapX: 0, gapY: 0,
+    },
+    'a4-44': {
+      marginTop: 10.6, marginBottom: 10.6, marginLeft: 6.4, marginRight: 6.4,
+      labelWidth: 48.3, labelHeight: 25.4, gapX: 0, gapY: 0,
+    },
+  };
+
   const errorEl = document.getElementById('error');
   const createPdfButton = document.getElementById('createPdfButton');
+  const paperPresetSelect = document.getElementById('paperPreset');
+
+  // プリセット選択時に余白・ラベルサイズ・ラベル間余白を自動入力する(選択後も手動で微調整可能)
+  function applyPaperPreset(presetKey) {
+    const preset = PAPER_PRESETS[presetKey];
+    if (!preset) {
+      return;
+    }
+    document.getElementById('marginTop').value = preset.marginTop;
+    document.getElementById('marginBottom').value = preset.marginBottom;
+    document.getElementById('marginLeft').value = preset.marginLeft;
+    document.getElementById('marginRight').value = preset.marginRight;
+    document.getElementById('labelWidth').value = preset.labelWidth;
+    document.getElementById('labelHeight').value = preset.labelHeight;
+    document.getElementById('gapX').value = preset.gapX;
+    document.getElementById('gapY').value = preset.gapY;
+  }
+
+  paperPresetSelect.addEventListener('change', () => {
+    applyPaperPreset(paperPresetSelect.value);
+  });
 
   function showError(message) {
     errorEl.textContent = message;
@@ -195,19 +246,29 @@
 
   // 入力値を検証する。問題があればエラーメッセージ文字列を、問題なければnullを返す
   function validateInputs(values) {
-    const numericFields = [
+    // 用紙の余白・ラベルサイズは0より大きい値が必須
+    const positiveFields = [
       ['上余白', values.marginTop],
       ['下余白', values.marginBottom],
       ['左余白', values.marginLeft],
       ['右余白', values.marginRight],
       ['ラベルの幅', values.labelWidth],
       ['ラベルの高さ', values.labelHeight],
+    ];
+    for (const [label, value] of positiveFields) {
+      if (!Number.isFinite(value) || value <= 0) {
+        return `${label}には0より大きい数値を入力してください。`;
+      }
+    }
+
+    // ラベル間の余白はラベル同士を隙間なく配置できるよう0を許可する
+    const nonNegativeFields = [
       ['ラベル間の横方向余白', values.gapX],
       ['ラベル間の縦方向余白', values.gapY],
     ];
-    for (const [label, value] of numericFields) {
-      if (!Number.isFinite(value) || value <= 0) {
-        return `${label}には0より大きい数値を入力してください。`;
+    for (const [label, value] of nonNegativeFields) {
+      if (!Number.isFinite(value) || value < 0) {
+        return `${label}には0以上の数値を入力してください。`;
       }
     }
 
